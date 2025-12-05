@@ -36,14 +36,14 @@ __global__ void getRects(
     float* __restrict__ depths,
     const dim3 grid,
     uint4 *__restrict__ gs_rects,
-    uint* __restrict__ patch_num_per_gs);
+    unsigned int* __restrict__ patch_num_per_gs);
 
 __global__ void getRanges(
     const int patch_num,
     const uint64_t *__restrict__ patch_keys,
     int2 *__restrict__ patch_range_per_tile);
 
-__global__ void draw __launch_bounds__(BLOCK *BLOCK)(
+__global__ void __launch_bounds__(BLOCK *BLOCK) draw(
     const int width,
     const int height,
     const int2 *__restrict__ patch_range_per_tile,
@@ -111,9 +111,8 @@ __global__ void sh2Color(
     float *__restrict__ dcolor_dshs = nullptr,
     float *__restrict__ dcolor_dpws = nullptr);
 
-__global__ void __launch_bounds__(BLOCK *BLOCK)
-    drawB(
-        const int width, 
+__global__ void __launch_bounds__(BLOCK *BLOCK) drawB(
+        const int width,
         const int height,
         const int2 *__restrict__ patch_range_per_tile,
         const int *__restrict__ gsid_per_patch,

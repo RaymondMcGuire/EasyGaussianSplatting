@@ -64,9 +64,9 @@ __global__ void createKeys(
     uint32_t off = (i == 0) ? 0 : patch_offset_per_gs[i - 1];
     uint4 rect = rects[i];
 
-    for (uint y = rect.y; y < rect.w; y++)
+    for (unsigned int y = rect.y; y < rect.w; y++)
     {
-        for (uint x = rect.x; x < rect.z; x++)
+        for (unsigned int x = rect.x; x < rect.z; x++)
         {
             uint64_t key = (y * grid.x + x);
             key <<= 32;
@@ -86,7 +86,7 @@ __global__ void getRects(
     float* __restrict__ depths,
     const dim3 grid,
     uint4 *__restrict__ gs_rects,
-    uint* __restrict__ patch_num_per_gs)
+    unsigned int* __restrict__ patch_num_per_gs)
 {
     const int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= gs_num)
@@ -109,7 +109,7 @@ __global__ void getRects(
         min(grid.y, max((int)0, (int)(DIV_ROUND_UP(u.y + ys, BLOCK))))  // max_y
     };
 
-    uint n = (rect.w - rect.y) * (rect.z - rect.x);
+    unsigned int n = (rect.w - rect.y) * (rect.z - rect.x);
 
     if (n == 0)
     {
@@ -149,7 +149,7 @@ __global__ void getRanges(
     }
 }
 
-__global__ void draw __launch_bounds__(BLOCK *BLOCK)(
+__global__ void __launch_bounds__(BLOCK *BLOCK) draw(
     const int width,
     const int height,
     const int2 *__restrict__ patch_range_per_tile,
@@ -806,9 +806,8 @@ __global__ void sh2Color(
     }
 }
 
-__global__ void __launch_bounds__(BLOCK *BLOCK)
-    drawB(
-        const int width, 
+__global__ void __launch_bounds__(BLOCK *BLOCK) drawB(
+        const int width,
         const int height,
         const int2 *__restrict__ patch_range_per_tile,
         const int *__restrict__ gsid_per_patch,

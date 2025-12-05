@@ -48,8 +48,8 @@ std::vector<torch::Tensor> splat(
 	dim3 block(BLOCK, BLOCK, 1);
 
     thrust::device_vector<uint4> gs_rects(gs_num);
-    thrust::device_vector<uint>  patch_num_per_gs(gs_num);
-    thrust::device_vector<uint>  patch_offset_per_gs(gs_num);
+    thrust::device_vector<unsigned int>  patch_num_per_gs(gs_num);
+    thrust::device_vector<unsigned int>  patch_offset_per_gs(gs_num);
 
     getRects<<<DIV_ROUND_UP(gs_num, BLOCK_SIZE), BLOCK_SIZE >>>(
         gs_num,
@@ -64,7 +64,7 @@ std::vector<torch::Tensor> splat(
     thrust::inclusive_scan(patch_num_per_gs.begin(), patch_num_per_gs.end(), patch_offset_per_gs.begin());
 
     // patch_num: The total number of patches needs to be drawn
-    uint patch_num = (uint)patch_offset_per_gs[gs_num - 1];  // copy to cpu memory
+    unsigned int patch_num = (unsigned int)patch_offset_per_gs[gs_num - 1];  // copy to cpu memory
 
     thrust::device_vector<uint64_t> patch_keys(patch_num);
     thrust::device_vector<int> gsid_per_patch(patch_num);
@@ -80,7 +80,7 @@ std::vector<torch::Tensor> splat(
     CHECK_CUDA(DEBUG);
 
     thrust::sort_by_key(patch_keys.begin(), patch_keys.end(), gsid_per_patch.begin());
-    const uint tile_num = grid.x * grid.y;
+    const unsigned int tile_num = grid.x * grid.y;
     torch::Tensor patch_range_per_tile = torch::full({tile_num, 2}, 0, int_opts);
 
     if (patch_num > 0)
