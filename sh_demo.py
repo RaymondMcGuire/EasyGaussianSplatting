@@ -50,7 +50,7 @@ def rotate(sphere, angle_increment=0.01):
     rotation_thread.start()
 
 
-device = 'cuda'
+device = 'cpu'
 
 
 def sh2color(sh, ray_dir, dim=108):
