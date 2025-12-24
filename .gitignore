@@ -5,3 +5,4 @@
 .vscode/settings.json
 data/*.npy
 data/tandt_db/*
+data/pretrained/*
