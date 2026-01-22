@@ -5,6 +5,9 @@ from gsplat.gau_io import *
 from gsplat.gausplat_dataset import *
 import sys
 import os
+from PyQt5.QtWidgets import QApplication
+
+app = QApplication.instance() or QApplication([])
 sys.path.append(os.path.join(os.path.dirname(__file__), 'viewer'))
 
 from viewer import *
@@ -22,12 +25,17 @@ if __name__ == '__main__':
     gs_set = []
     cam_size = 1
     if args.path:
-        print("Try to training %s ..." % args.path)
-        gs_set = GSplatDataset(args.path)
-        gs = gs_set.gs
-        cam_size = gs_set.sence_size * 0.05
-        rotate_gaussian(cam_2_world, gs)
-    if args.gs:
+        if os.path.isfile(args.path):
+            print("Try to load %s ..." % args.path)
+            gs = load_gs(args.path)
+            rotate_gaussian(cam_2_world, gs)
+        else:
+            print("Try to training %s ..." % args.path)
+            gs_set = GSplatDataset(args.path, gs_path=args.gs)
+            gs = gs_set.gs
+            cam_size = gs_set.sence_size * 0.05
+            rotate_gaussian(cam_2_world, gs)
+    elif args.gs:
         print("Try to load %s ..." % args.gs)
         gs = load_gs(args.gs)
         rotate_gaussian(cam_2_world, gs)
@@ -38,7 +46,6 @@ if __name__ == '__main__':
 
     gs_data = gs.view(np.float32).reshape(gs.shape[0], -1)
 
-    app = QApplication([])
     gs_item = GaussianItem()
     grid_item = GridItem()
 

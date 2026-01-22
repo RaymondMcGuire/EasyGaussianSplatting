@@ -59,34 +59,37 @@ def matrix_to_quaternion(matrices):
 
 def load_ply(path, T=None):
     plydata = PlyData.read(path)
-    pws = np.stack((np.asarray(plydata.elements[0]["x"]),
-                    np.asarray(plydata.elements[0]["y"]),
-                    np.asarray(plydata.elements[0]["z"])),  axis=1)
+    vertex = plydata.elements[0]
+    pws = np.stack((np.asarray(vertex["x"]),
+                    np.asarray(vertex["y"]),
+                    np.asarray(vertex["z"])),  axis=1)
 
-    alphas = np.asarray(plydata.elements[0]["opacity"])
+    alphas = np.asarray(vertex["opacity"])
     alphas = 1/(1 + np.exp(-alphas))
 
-    scales = np.stack((np.asarray(plydata.elements[0]["scale_0"]),
-                       np.asarray(plydata.elements[0]["scale_1"]),
-                       np.asarray(plydata.elements[0]["scale_2"])),  axis=1)
+    scales = np.stack((np.asarray(vertex["scale_0"]),
+                       np.asarray(vertex["scale_1"]),
+                       np.asarray(vertex["scale_2"])),  axis=1)
 
-    rots = np.stack((np.asarray(plydata.elements[0]["rot_0"]),
-                     np.asarray(plydata.elements[0]["rot_1"]),
-                     np.asarray(plydata.elements[0]["rot_2"]),
-                     np.asarray(plydata.elements[0]["rot_3"])),  axis=1)
+    rots = np.stack((np.asarray(vertex["rot_0"]),
+                     np.asarray(vertex["rot_1"]),
+                     np.asarray(vertex["rot_2"]),
+                     np.asarray(vertex["rot_3"])),  axis=1)
 
     rots /= np.linalg.norm(rots, axis=1)[:, np.newaxis]
 
-    sh_dim = len(plydata.elements[0][0])-14
+    # Only count SH fields; ignore any extra properties like "layer".
+    names = set(vertex.data.dtype.names)
+    sh_dim = len([name for name in names if name.startswith("f_")])
     shs = np.zeros([pws.shape[0], sh_dim])
-    shs[:, 0] = np.asarray(plydata.elements[0]["f_dc_0"])
-    shs[:, 1] = np.asarray(plydata.elements[0]["f_dc_1"])
-    shs[:, 2] = np.asarray(plydata.elements[0]["f_dc_2"])
+    shs[:, 0] = np.asarray(vertex["f_dc_0"])
+    shs[:, 1] = np.asarray(vertex["f_dc_1"])
+    shs[:, 2] = np.asarray(vertex["f_dc_2"])
 
     sh_rest_dim = sh_dim - 3
     for i in range(sh_rest_dim):
         name = "f_rest_%d" % i
-        shs[:, 3 + i] = np.asarray(plydata.elements[0][name])
+        shs[:, 3 + i] = np.asarray(vertex[name])
 
     shs[:, 3:] = shs[:, 3:].reshape(-1, 3, sh_rest_dim//3).transpose([0, 2, 1]).reshape(-1, sh_rest_dim)
 

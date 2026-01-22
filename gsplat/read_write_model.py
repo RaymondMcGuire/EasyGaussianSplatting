@@ -131,6 +131,32 @@ def read_cameras_binary(path_to_model_file):
     return cameras
 
 
+def read_cameras_text(path_to_model_file):
+    """
+    Read cameras from COLMAP text format (cameras.txt).
+    """
+    cameras = {}
+    with open(path_to_model_file, "r") as fid:
+        for line in fid:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            elems = line.split()
+            camera_id = int(elems[0])
+            model_name = elems[1]
+            width = int(elems[2])
+            height = int(elems[3])
+            params = np.array(tuple(map(float, elems[4:])))
+            cameras[camera_id] = Camera(
+                id=camera_id,
+                model=model_name,
+                width=width,
+                height=height,
+                params=params,
+            )
+    return cameras
+
+
 def read_images_binary(path_to_model_file):
     """
     see: src/colmap/scene/reconstruction.cc
@@ -169,6 +195,48 @@ def read_images_binary(path_to_model_file):
                 ]
             )
             point3D_ids = np.array(tuple(map(int, x_y_id_s[2::3])))
+            images[image_id] = Image(
+                id=image_id,
+                qvec=qvec,
+                tvec=tvec,
+                camera_id=camera_id,
+                name=image_name,
+                xys=xys,
+                point3D_ids=point3D_ids,
+            )
+    return images
+
+
+def read_images_text(path_to_model_file):
+    """
+    Read images from COLMAP text format (images.txt).
+    """
+    images = {}
+    with open(path_to_model_file, "r") as fid:
+        while True:
+            line = fid.readline()
+            if not line:
+                break
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            elems = line.split()
+            image_id = int(elems[0])
+            qvec = np.array(tuple(map(float, elems[1:5])))
+            tvec = np.array(tuple(map(float, elems[5:8])))
+            camera_id = int(elems[8])
+            image_name = elems[9]
+            # Next line contains 2D points; keep structure compatible.
+            points_line = fid.readline()
+            if points_line:
+                elems = points_line.split()
+                xys = np.column_stack(
+                    [tuple(map(float, elems[0::3])), tuple(map(float, elems[1::3]))]
+                )
+                point3D_ids = np.array(tuple(map(int, elems[2::3])))
+            else:
+                xys = np.empty((0, 2))
+                point3D_ids = np.empty((0,), dtype=np.int64)
             images[image_id] = Image(
                 id=image_id,
                 qvec=qvec,
@@ -234,9 +302,27 @@ def read_points_bin_as_gau(path_to_model_file):
 
 
 def read_model(path, ext=""):
-    cameras = read_cameras_binary(os.path.join(path, "cameras.bin"))
-    images = read_images_binary(os.path.join(path, "images.bin"))
-    return cameras, images
+    if ext == ".txt":
+        cameras = read_cameras_text(os.path.join(path, "cameras.txt"))
+        images = read_images_text(os.path.join(path, "images.txt"))
+        return cameras, images
+    if ext == ".bin":
+        try:
+            cameras = read_cameras_binary(os.path.join(path, "cameras.bin"))
+            images = read_images_binary(os.path.join(path, "images.bin"))
+            return cameras, images
+        except FileNotFoundError:
+            cameras = read_cameras_text(os.path.join(path, "cameras.txt"))
+            images = read_images_text(os.path.join(path, "images.txt"))
+            return cameras, images
+    try:
+        cameras = read_cameras_binary(os.path.join(path, "cameras.bin"))
+        images = read_images_binary(os.path.join(path, "images.bin"))
+        return cameras, images
+    except FileNotFoundError:
+        cameras = read_cameras_text(os.path.join(path, "cameras.txt"))
+        images = read_images_text(os.path.join(path, "images.txt"))
+        return cameras, images
 
 
 def qvec2rotmat(qvec):

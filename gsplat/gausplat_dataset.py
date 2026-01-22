@@ -1,7 +1,9 @@
 from torch.utils.data import Dataset
 from pathlib import Path
 from typing import List, Tuple
+import re
 from gsplat.read_write_model import *
+from gsplat.gau_io import load_gs
 # from read_write_model import *
 from PIL import Image
 import torch
@@ -28,7 +30,7 @@ class Camera:
 
 
 class GSplatDataset(Dataset):
-    def __init__(self, path, resize_rate=1, device='cuda') -> None:
+    def __init__(self, path, resize_rate=1, device='cuda', gs_path=None) -> None:
         super().__init__()
         self.device = device
         self.resize_rate = resize_rate
@@ -46,10 +48,17 @@ class GSplatDataset(Dataset):
 
             w_scale = image.width/camera_param.width
             h_scale = image.height/camera_param.height
-            fx = camera_param.params[0] * w_scale
-            fy = camera_param.params[1] * h_scale
-            cx = camera_param.params[2] * w_scale
-            cy = camera_param.params[3] * h_scale
+            if len(camera_param.params) == 3:
+                f = camera_param.params[0]
+                fx = f * w_scale
+                fy = f * h_scale
+                cx = camera_param.params[1] * w_scale
+                cy = camera_param.params[2] * h_scale
+            else:
+                fx = camera_param.params[0] * w_scale
+                fy = camera_param.params[1] * h_scale
+                cx = camera_param.params[2] * w_scale
+                cy = camera_param.params[3] * h_scale
             Rcw = torch.from_numpy(image_param.qvec2rotmat()).to(self.device).to(torch.float32)
             tcw = torch.from_numpy(image_param.tvec).to(self.device).to(torch.float32)
             camera = Camera(image_param.id, image.width, image.height, fx, fy, cx, cy, Rcw, tcw, im_path)
@@ -57,11 +66,7 @@ class GSplatDataset(Dataset):
 
             self.cameras.append(camera)
             self.images.append(image)
-        try:
-            self.gs = np.load(Path(path, "sparse/0/points3D.npy"))
-        except:
-            self.gs = read_points_bin_as_gau(Path(path, "sparse/0/points3D.bin"))
-            np.save(Path(path, "sparse/0/points3D.npy"), self.gs)
+        self.gs = self._load_gs(Path(path), gs_path)
 
         twcs = torch.stack([x.twc for x in self.cameras])
         cam_dist = torch.linalg.norm(twcs - torch.mean(twcs, axis=0), axis=1)
@@ -72,6 +77,31 @@ class GSplatDataset(Dataset):
 
     def __len__(self) -> int:
         return len(self.images)
+
+    def _load_gs(self, root: Path, gs_path):
+        if gs_path:
+            return load_gs(gs_path)
+        npy_path = Path(root, "sparse/0/points3D.npy")
+        if npy_path.exists():
+            return np.load(npy_path)
+        bin_path = Path(root, "sparse/0/points3D.bin")
+        if bin_path.exists():
+            gs = read_points_bin_as_gau(bin_path)
+            np.save(npy_path, gs)
+            return gs
+        ply_path = self._find_latest_ply(root)
+        if ply_path is not None:
+            return load_gs(str(ply_path))
+        raise FileNotFoundError("No gs data found under %s" % root)
+
+    def _find_latest_ply(self, root: Path):
+        candidates = list(Path(root, "point_cloud").glob("iteration_*/point_cloud.ply"))
+        if not candidates:
+            return None
+        def iter_num(path: Path):
+            match = re.search(r"iteration_(\d+)", path.parent.name)
+            return int(match.group(1)) if match else -1
+        return max(candidates, key=iter_num)
 
 
 if __name__ == "__main__":
